@@ -1,0 +1,166 @@
+  #include <ESP8266WiFi.h>
+  int DIR1=D1;
+  int PWR1=D3;
+  int DIR2=D2;
+  int PWR2=D0;
+  //Enter the customer credentials
+  const char* ssid = "Mahesh";
+  const char* password = "00000000";
+  
+  WiFiServer server(80);
+
+void setup() 
+{
+  Serial.begin(115200);
+  delay(10);
+
+  // Connect to Wi-Fi
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) 
+  {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println("WiFi connected");
+
+  // Start the server
+  server.begin();
+  Serial.println("Server started");
+
+  // Print the IP address
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+  pinMode(DIR1, OUTPUT);
+  pinMode(DIR2, OUTPUT);
+  pinMode(PWR1, OUTPUT);
+   pinMode(PWR2, OUTPUT);
+  digitalWrite(DIR1, LOW);
+  digitalWrite(DIR2, LOW);
+  analogWrite(PWR1, 0);
+   analogWrite(PWR2, 0);
+  
+}
+
+void loop() {
+  WiFiClient client = server.available();
+  if (!client) {
+    return;
+  }
+
+  // Wait for client request
+  Serial.println("New client connected");
+  while (!client.available()) {
+    delay(1);
+  }
+
+  // Read the first line of the request
+  String request = client.readStringUntil('\r');
+  Serial.println(request);
+  client.flush();
+  String speed = getValueFromURL(request, "speed");
+  String direction = getValueFromURL(request, "direction");
+  String power = getValueFromURL(request, "power");
+  
+  Serial.println(speed);
+  Serial.println(direction);
+  Serial.println(power);
+
+  // Send response to client
+  String response = "";
+  //for forward
+  if (speed=="walking" && direction=="forward") {
+    // Start the motors forward
+    // Assuming GPIO pins D1 and D2 for motor control
+    if(power=="high")
+    {
+ 
+      analogWrite(PWR1, 200);
+      digitalWrite(DIR1, LOW);
+       analogWrite(PWR2, 180);
+      digitalWrite(DIR2, HIGH);
+      delay(2000);
+    }
+    else if(power=="medium")
+    {
+
+      analogWrite(PWR1, 150);
+    digitalWrite(DIR1, LOW);
+     analogWrite(PWR2, 130);
+    digitalWrite(DIR2, HIGH);
+    }
+    else
+    {
+
+      analogWrite(PWR1, 100);
+    digitalWrite(DIR1, LOW);
+     analogWrite(PWR2, 80);
+    digitalWrite(DIR2, HIGH);
+    }
+    
+    
+    response = "Motors started forward!";
+  } else if (speed=="stopped") {
+    
+      analogWrite(PWR1, 0);
+      analogWrite(PWR2, 0);
+   
+    response = "Motors stopped!";
+  }
+  //for left
+ else if (direction=="left") {
+    // Stop the motors
+    analogWrite(PWR1, 100);
+    
+    
+    digitalWrite(DIR1, HIGH);
+     analogWrite(PWR2, 0);
+   digitalWrite(DIR2, HIGH);
+   delay(1500);
+    
+    response = "Motors LEFT!";
+  }
+  //right
+  else if (direction=="right") {
+    // Stop the motors
+    analogWrite(PWR2, 100);
+    
+    
+    digitalWrite(DIR1, LOW);
+     analogWrite(PWR1, 0);
+   digitalWrite(DIR2, LOW);
+   delay(1500);
+    
+    response = "Motors RIGHT!";
+  }
+  
+  client.println("HTTP/1.1 200 OK");
+  client.println("Content-Type: text/html");
+  client.println("");
+  client.println("<!DOCTYPE HTML>");
+  client.println("<html>");
+  client.println("<body>");
+  client.println("<h1>Motor Control</h1>");
+  client.println("<p>" + response + "</p>");
+  client.println("</body>");
+  client.println("</html>");
+
+  delay(1);
+  Serial.println("Client disconnected");
+  Serial.println("");
+}
+String getValueFromURL(String data, String key) {
+  int start = data.indexOf(key + "=");
+  if (start == -1) {
+    return ""; // Return -1 if key not found
+  }
+  start += key.length() + 1;
+  int end = data.indexOf('&', start);
+  if (end == -1) {
+    end = data.length();
+  }
+  return data.substring(start, end);
+}
